@@ -4,30 +4,11 @@ import base64
 import pandas as pd
 from io import BytesIO
 import configparser
-import re
 
 # Set page configuration to wide mode by default
 st.set_page_config(layout="wide")
-pd.set_option("styler.render.max_elements", 500000)
+pd.set_option("styler.render.max_elements", 50000000)
 CONFIG_FILE = 'connections.ini'
-REPORT_CONFIG_FILE = 'reportconfig.ini'
-
-# Read the contents of the CSS file
-css = open('styles.css', 'r').read()
-
-
-
-# Add the CSS to the Streamlit app using st.markdown
-st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
-
-
-
-# Function to get dynamic report path
-def get_report_name():
-    config = configparser.ConfigParser()
-    config.read(REPORT_CONFIG_FILE)
-    return config.get('report', 'report_path')
-
 
 # Function to save or update connection details to a properties file
 def save_or_update_connection_details(url, username, password, connection_name):
@@ -46,8 +27,10 @@ def save_or_update_connection_details(url, username, password, connection_name):
     with open(CONFIG_FILE, 'w') as configfile:
         config.write(configfile)
     
-    # Refresh the list of saved connections and select the newly created connection    
-    # st.rerun()
+    # Refresh the list of saved connections and select the newly created connection
+    # st.sidebar.clear_cache()
+    st.experimental_rerun()
+    # st.session_state.selected_connection = connection_name
 
 # Function to load saved connections from the properties file
 def load_saved_connections():
@@ -62,15 +45,20 @@ def get_connection_details(connection_name):
     return config[connection_name]['url'], config[connection_name]['username'], config[connection_name]['password']
 
 # Function to invoke SOAP API
+# @st.cache_data(hash_funcs={requests.Response: lambda _: None})
 def invoke_soap_api(payload , url , username , password):
     # Define the URL of the SOAP API endpoint
     url = f'{url}/xmlpserver/services/ExternalReportWSSService?WSDL'
     USERNAME = username
     PASSWORD = password
+
     # Define headers for the SOAP request
     headers = {'Content-Type': 'application/soap+xml'}
+
     # Make the POST request to invoke the SOAP API
-    response = requests.request(method='POST', url=url, data=payload, headers=headers, auth=(USERNAME, PASSWORD))    
+    response = requests.request(method='POST', url=url, data=payload, headers=headers, auth=(USERNAME, PASSWORD))
+    
+
     # Check if the request was successful
     if response.status_code == 200:
         return response
@@ -88,26 +76,57 @@ def extract_report_bytes(response_text):
     else:
         return None
 
-# Function to decode base64
-def decode_base64(base64_data):    
+# Function to decode base64 and display CSV
+def decode_base64_and_display_csv(base64_data):
     # Decode base64 data
     decoded_data = base64.b64decode(base64_data)
-    return decoded_data
 
-# Function to display CSV data
-def display_csv_data(decoded_data):
     # Read the decoded data as CSV
     csv_data = pd.read_csv(BytesIO(decoded_data))
+    
+    # st.table(csv_data)
+    # st.write(csv_data)
+    
+    st.session_state.csv_data = csv_data
     
     st.dataframe(csv_data.style.set_caption("Decoded CSV Data").set_table_styles([{
         'selector': 'th',
         'props': [('font-weight', 'bold')]
     }]), width=5000)
 
+# Main function
+def main():
+    # Input fields for selecting saved connections
+    saved_connections = load_saved_connections()    
+    selected_connection = st.sidebar.selectbox('Select Connection:', saved_connections)
+    connection_name = selected_connection
 
-def click_run_button(user_input , report_name , url_input , username_input , password_input):
-    # Convert user input to base64
-        base64_input = base64.b64encode(user_input.encode()).decode()        
+    # Get connection details based on the selected connection
+    if selected_connection:
+        # st.session_state.csv_data = ""
+        url, username, password  = get_connection_details(selected_connection) 
+    else:
+        url, username, password , connection_name= '', '', '' ,''
+
+    # Input fields for URL, username, and password
+    connection_name = st.sidebar.text_input('Connection Name', value=connection_name)
+    url_input = st.sidebar.text_input('API URL', value=url)
+    username_input = st.sidebar.text_input('Username', value=username)
+    password_input = st.sidebar.text_input('Password', type='password', value=password)
+
+    # Save button to store or update connection details
+    if st.sidebar.button('Save'):
+        save_or_update_connection_details(url_input, username_input, password_input, connection_name)        
+
+    # Input field for user to enter data
+    user_input = st.text_area('Enter valid query', height=200)
+    
+    submit =  st.button('Run')
+
+    # Button to submit the input data
+    if submit:
+        # Convert user input to base64
+        base64_input = base64.b64encode(user_input.encode()).decode()
 
         # Construct the SOAP request payload with the base64 input
         soap_payload = f"""
@@ -119,16 +138,16 @@ def click_run_button(user_input , report_name , url_input , username_input , pas
                     <pub:attributeFormat>csv</pub:attributeFormat>
                     <pub:flattenXML>false</pub:flattenXML>
                     <pub:parameterNameValues>
-                         <pub:item>
-                            <pub:name>query1</pub:name>
-                            <pub:values>
-                               <pub:item>{base64_input}</pub:item>
-                            </pub:values>
-                         </pub:item>
+                       <pub:item>
+                          <pub:name>query1</pub:name>
+                          <pub:values>
+                             <pub:item>{base64_input}</pub:item>
+                          </pub:values>
+                       </pub:item>
                     </pub:parameterNameValues>
-                    <pub:reportAbsolutePath>{report_name}</pub:reportAbsolutePath>
+                    <pub:reportAbsolutePath>/Custom/AACR/SampleReport.xdo</pub:reportAbsolutePath>
                     <pub:sizeOfDataChunkDownload>-1</pub:sizeOfDataChunkDownload>
-                </pub:reportRequest>
+                 </pub:reportRequest>
               </pub:runReport>
            </soap:Body>
         </soap:Envelope>
@@ -136,56 +155,29 @@ def click_run_button(user_input , report_name , url_input , username_input , pas
 
         # Invoke the SOAP API with the constructed payload
         api_response = invoke_soap_api(soap_payload , url_input , username_input , password_input)
-        
         if api_response:
             report_bytes = extract_report_bytes(str(api_response.text))
             # Replace None values with 'null' for better display
             report_bytes = report_bytes if report_bytes is not None else 'null'
-            # Decode base64 response
-            decoded_data = decode_base64(report_bytes)
-            # Display CSV data
-            display_csv_data(decoded_data)
+            # Decode base64 response and display CSV data
+            decode_base64_and_display_csv(report_bytes)
     # Set the selected connection to the newly created or updated connection
-    # st.session_state.selected_connection = connection_name
-    
-    
-    
-# Main function
-def main():
-    # Input fields for selecting saved connections        
-    saved_connections = load_saved_connections()    
-    selected_connection = st.sidebar.selectbox('Select Connection:', saved_connections)
-    connection_name = selected_connection
-
-    # Get connection details based on the selected connection
-    if selected_connection:
-        url, username, password  = get_connection_details(selected_connection) 
     else:
-        url, username, password , connection_name= '', '', '' ,''
-
-    # Input fields for URL, username, and password
-    
-    connection_name = st.sidebar.text_input('Connection Name', value=connection_name)
-    url_input = st.sidebar.text_input('API URL', value=url)
-    username_input = st.sidebar.text_input('Username', value=username)
-    password_input = st.sidebar.text_input('Password', type='password', value=password)
-    report_name = get_report_name()
-
-    # Save button to store or update connection details
-    if st.sidebar.button('Save'):
-        save_or_update_connection_details(url_input, username_input, password_input, connection_name)        
-    
-    # Input field for user to enter data        
-    user_input = st.text_area('Enter valid query. Dont include ;', height=200 ,key= 'user_input') 
-                
-    run_button_clicked = st.button('Run')            
-    
-    
-    # Button to submit the input data
-    if run_button_clicked:
-        click_run_button(user_input=user_input , report_name= report_name, url_input= url_input , username_input= username_input , password_input= password_input)
-    # Set the selected connection to the newly created or updated connection
-    # st.session_state.selected_connection = connection_name
+        if 'csv_data' not in st.session_state:
+            st.session_state.csv_data = ""
+        elif 'csv_data'  in st.session_state:
+            try:
+                st.dataframe(st.session_state.csv_data.style.set_caption("Decoded CSV Data").set_table_styles([{
+                'selector': 'th',
+                'props': [('font-weight', 'bold')]
+                }]), width=5000)    
+            except Exception as e:
+                pass
+    st.session_state.selected_connection = connection_name
 
 if __name__ == '__main__':
     main()
+
+
+if 'user_input' not in st.session_state:
+        st.session_state.user_input = ""
