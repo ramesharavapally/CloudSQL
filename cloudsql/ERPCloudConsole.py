@@ -10,6 +10,22 @@ st.set_page_config(layout="wide")
 pd.set_option("styler.render.max_elements", 50000000)
 CONFIG_FILE = 'connections.ini'
 
+def set_css_style():
+    st.markdown(
+        """
+        <style>
+        /* Define custom font size and family */
+        textarea {
+            font-size: 14px !important;
+            font-family: "Source Code Pro", monospace !important;
+            font-optical-sizing: auto !important;
+        
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
 # Function to save or update connection details to a properties file
 def save_or_update_connection_details(url, username, password, connection_name):
     config = configparser.ConfigParser()
@@ -97,6 +113,7 @@ def decode_base64_and_display_csv(base64_data):
 # Main function
 def main():
     # Input fields for selecting saved connections
+    set_css_style()
     saved_connections = load_saved_connections()    
     selected_connection = st.sidebar.selectbox('Select Connection:', saved_connections)
     connection_name = selected_connection
