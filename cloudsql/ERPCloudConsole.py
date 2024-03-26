@@ -16,11 +16,11 @@ def set_css_style():
         <style>
         /* Define custom font size and family */
         textarea {
+            color: rgb(92, 78, 230) !important;                    
             font-size: 14px !important;
             font-family: "Source Code Pro", monospace !important;
-            font-optical-sizing: auto !important;
-        
-        }
+            font-optical-sizing: auto !important;            
+        }                
         </style>
         """,
         unsafe_allow_html=True
