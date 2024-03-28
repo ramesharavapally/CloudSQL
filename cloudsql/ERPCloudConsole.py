@@ -4,19 +4,20 @@ import base64
 import pandas as pd
 from io import BytesIO
 import configparser
+import os
 
 # Set page configuration to wide mode by default
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide" )
 pd.set_option("styler.render.max_elements", 50000000)
-CONFIG_FILE = 'connections.ini'
+CONFIG_FILE = 'config.ini'
 
 def set_css_style():
     st.markdown(
         """
-        <style>
+        <style>                
         /* Define custom font size and family */
         textarea {
-            color: rgb(92, 78, 230) !important;                    
+            color: rgb(0, 0, 139) !important;                    
             font-size: 14px !important;
             font-family: "Source Code Pro", monospace !important;
             font-optical-sizing: auto !important;            
@@ -25,6 +26,11 @@ def set_css_style():
         """,
         unsafe_allow_html=True
     )
+
+def get_report_name():
+    config = configparser.ConfigParser()
+    config.read(CONFIG_FILE)
+    return config['DEFAULT']['report_path']
 
 # Function to save or update connection details to a properties file
 def save_or_update_connection_details(url, username, password, connection_name):
@@ -112,7 +118,7 @@ def decode_base64_and_display_csv(base64_data):
 
 # Main function
 def main():
-    # Input fields for selecting saved connections
+    # Input fields for selecting saved connections    
     set_css_style()
     saved_connections = load_saved_connections()    
     selected_connection = st.sidebar.selectbox('Select Connection:', saved_connections)
@@ -136,7 +142,7 @@ def main():
         save_or_update_connection_details(url_input, username_input, password_input, connection_name)        
 
     # Input field for user to enter data
-    user_input = st.text_area('Enter valid query', height=200)
+    user_input = st.text_area('Enter valid query', height=250)
     
     submit =  st.button('Run')
 
@@ -162,7 +168,7 @@ def main():
                           </pub:values>
                        </pub:item>
                     </pub:parameterNameValues>
-                    <pub:reportAbsolutePath>/Custom/AACR/SampleReport.xdo</pub:reportAbsolutePath>
+                    <pub:reportAbsolutePath>{get_report_name()}</pub:reportAbsolutePath>
                     <pub:sizeOfDataChunkDownload>-1</pub:sizeOfDataChunkDownload>
                  </pub:reportRequest>
               </pub:runReport>
