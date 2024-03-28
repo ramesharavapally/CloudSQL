@@ -85,6 +85,7 @@ def invoke_soap_api(payload , url , username , password):
     if response.status_code == 200:
         return response
     else:
+        st.session_state.csv_data = ""
         st.error(f"Failed to invoke SOAP API. Status code: {response.status_code} {response.text}")
 
 # Function to extract report bytes
@@ -99,7 +100,7 @@ def extract_report_bytes(response_text):
         return None
 
 # Function to decode base64 and display CSV
-def decode_base64_and_display_csv(base64_data):
+def decode_base64_and_display_csv(base64_data):    
     # Decode base64 data
     decoded_data = base64.b64decode(base64_data)
 
