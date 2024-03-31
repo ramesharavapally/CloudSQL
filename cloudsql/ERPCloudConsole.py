@@ -67,7 +67,7 @@ def get_connection_details(connection_name):
     return config[connection_name]['url'], config[connection_name]['username'], config[connection_name]['password']
 
 # Function to invoke SOAP API
-# @st.cache_data(hash_funcs={requests.Response: lambda _: None})
+@st.cache_data
 def invoke_soap_api(payload , url , username , password):
     # Define the URL of the SOAP API endpoint
     url = f'{url}/xmlpserver/services/ExternalReportWSSService?WSDL'
