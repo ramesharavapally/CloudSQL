@@ -67,7 +67,7 @@ def get_connection_details(connection_name):
     return config[connection_name]['url'], config[connection_name]['username'], config[connection_name]['password']
 
 # Function to invoke SOAP API
-@st.cache_data
+# @st.cache_data
 def invoke_soap_api(payload , url , username , password):
     # Define the URL of the SOAP API endpoint
     url = f'{url}/xmlpserver/services/ExternalReportWSSService?WSDL'
@@ -142,6 +142,7 @@ def main():
     if st.sidebar.button('Save'):
         save_or_update_connection_details(url_input, username_input, password_input, connection_name)        
 
+    st.write(f'Connection name : {connection_name}')
     # Input field for user to enter data
     user_input = st.text_area('Enter valid query', height=250)
     
